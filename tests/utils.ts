@@ -20,6 +20,9 @@ function buildDataCell(name: string, cfg:CounterContractConfig): Cell {
         case "CounterContract": {
             return c1Cell(cfg)
         }
+        case "CounterContract_V2": {
+            return c1Cell(cfg)
+        }
         default:
             throw Error("Unknown")
     }
