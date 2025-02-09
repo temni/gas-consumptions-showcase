@@ -15,6 +15,19 @@ export function c1Cell(config: CounterContractConfig): Cell {
         .endCell();
 }
 
+export function c3Cell(config: CounterContractConfig): Cell {
+    return beginCell()
+        .storeUint(config.counter_1_initial_value, 32)
+        .storeUint(config.counter_2_initial_value, 32)
+        .storeUint(config.counter_3_initial_value, 32)
+        .storeRef(beginCell()
+            .storeUint(config.counter_1_initial_value, 32)
+            .storeUint(config.counter_2_initial_value, 32)
+            .storeUint(config.counter_3_initial_value, 32)
+            .endCell())
+        .endCell();
+}
+
 function buildDataCell(name: string, cfg:CounterContractConfig): Cell {
     switch (name) {
         case "CounterContract": {
@@ -22,6 +35,9 @@ function buildDataCell(name: string, cfg:CounterContractConfig): Cell {
         }
         case "CounterContract_V2": {
             return c1Cell(cfg)
+        }
+        case "CounterContract_V3": {
+            return c3Cell(cfg)
         }
         default:
             throw Error("Unknown")
@@ -66,9 +82,9 @@ export async function getAnnualSpendings(contract: SandboxContract<CounterContra
         () => contract.sendIncrease(increaser.getSender(), {  counterNumber: 2, increaseBy: 14 }), gb);
     const c3:bigint = await balanceSpentAvg(
         () => contract.sendIncrease(increaser.getSender(), {  counterNumber: 3, increaseBy: 14 }), gb);
-    console.log(`Gas spent on IncreaseCounter#1: ${fromNano(c1)}`);
+    /*console.log(`Gas spent on IncreaseCounter#1: ${fromNano(c1)}`);
     console.log(`Gas spent on IncreaseCounter#2: ${fromNano(c2)}`);
-    console.log(`Gas spent on IncreaseCounter#3: ${fromNano(c3)}`);
+    console.log(`Gas spent on IncreaseCounter#3: ${fromNano(c3)}`);*/
 
     const freqC1Daily = 1000n;
     const freqC2Daily = 2000n;
