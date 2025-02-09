@@ -1,0 +1,111 @@
+#include "imports/stdlib.fc";
+
+const op::increase = "op::increase"c;
+const op::flush = "op::flush"c;
+
+;; storage variables
+global int composite_counters;
+global int composite_static;
+
+;; load_data populates storage variables using stored data
+() load_data() impure {
+    var ds = get_data().begin_parse();
+    composite_counters = ds~load_uint(96);
+    composite_static = ds~load_uint(96);
+    ds.end_parse();
+}
+
+;; save_data stores storage variables as a cell into persistent storage
+() save_counters() impure {
+    set_data(
+        begin_cell()
+            .store_uint(composite_counters, 96)
+            .store_uint(composite_static, 96)
+            .end_cell()
+    );
+}
+
+() recv_internal(cell in_msg_full, slice in_msg_body) impure {
+    if (in_msg_body.slice_empty?()) { ;; ignore all empty messages
+        return ();
+    }
+
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+    if (flags & 1) { ;; ignore all bounced messages
+        return ();
+    }
+
+    slice sender_address = cs~load_msg_addr();
+
+    load_data(); ;; here we populate the storage variables
+
+    int op = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+
+    if (op == op::increase) {
+        var (counter_number, increase_by)  = (in_msg_body~load_uint(32), in_msg_body~load_uint(32));
+        int pos = (3 - counter_number) * 32;
+        int M = (1 << 32) - 1;
+        int X = (composite_counters >> pos) & M;
+        composite_counters = composite_counters - (X << pos) + (((X + increase_by) & M) << pos);
+        save_counters();
+
+        ;; return unspent grams back
+        send_raw_message(begin_cell()
+            .store_uint(0x18, 6)
+            .store_slice(sender_address)
+            .store_coins(0)
+            .store_uint(0, 106)
+            .store_uint(1, 1)
+            .store_ref(begin_cell()
+                .store_uint(0, 32)
+                .store_uint(query_id, 64)
+                .end_cell())
+            .end_cell(),
+            64);
+
+        return ();
+    }
+
+    if (op == op::flush) {
+        int counter_number = in_msg_body~load_uint(32);
+
+        int pos = (3 - counter_number) * 32;
+        int M = (1 << 32) - 1;
+        int X = (composite_counters >> pos) & M;
+        int NB = (composite_static >> pos) & M;
+        int new_field = (NB) & M;
+        composite_counters = composite_counters - (X << pos) + (new_field << pos);
+        save_counters();
+
+        ;; return unspent grams back
+        send_raw_message(begin_cell()
+            .store_uint(0x18, 6)
+            .store_slice(sender_address)
+            .store_coins(0)
+            .store_uint(0, 106)
+            .store_uint(1, 1)
+            .store_ref(begin_cell()
+                .store_uint(0, 32)
+                .store_uint(query_id, 64)
+                .end_cell())
+            .end_cell(),
+            64);
+
+        return ();
+    }
+
+    throw(0xffff);
+}
+
+(int, int, int) get_counters() method_id {
+    load_data();
+    ;; A is the most significant 32 bits: shift right by 64 bits.
+    int A = composite_counters >> 64;
+    ;; B is the middle 32 bits: shift right by 32 and mask out all but 32 bits.
+    int B = (composite_counters >> 32) & ((1 << 32) - 1);
+    ;; C is the least significant 32 bits.
+    int C = composite_counters & ((1 << 32) - 1);
+    return (A, B, C);
+}

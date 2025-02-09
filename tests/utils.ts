@@ -39,6 +39,9 @@ function buildDataCell(name: string, cfg:CounterContractConfig): Cell {
         case "CounterContract_V3": {
             return c3Cell(cfg)
         }
+        case "CounterContract_V4": {
+            return c1Cell(cfg)
+        }
         default:
             throw Error("Unknown")
     }
