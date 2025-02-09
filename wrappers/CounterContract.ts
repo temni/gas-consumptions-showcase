@@ -6,17 +6,6 @@ export type CounterContractConfig = {
     counter_3_initial_value: number;
 };
 
-export function counterContractConfigToCell(config: CounterContractConfig): Cell {
-    return beginCell()
-        .storeUint(config.counter_1_initial_value, 32)
-        .storeUint(config.counter_2_initial_value, 32)
-        .storeUint(config.counter_3_initial_value, 32)
-        .storeUint(config.counter_1_initial_value, 32)
-        .storeUint(config.counter_2_initial_value, 32)
-        .storeUint(config.counter_3_initial_value, 32)
-        .endCell();
-}
-
 export const Opcodes = {
     increase: 0x7e8764ef,
     flush: 0x12b2b62e
@@ -29,8 +18,7 @@ export class CounterContract implements Contract {
         return new CounterContract(address);
     }
 
-    static createFromConfig(config: CounterContractConfig, code: Cell, workchain = 0) {
-        const data = counterContractConfigToCell(config);
+    static createFromConfig(data: Cell, code: Cell, workchain = 0) {
         const init = { code, data };
         return new CounterContract(contractAddress(workchain, init), init);
     }

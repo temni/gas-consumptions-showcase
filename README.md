@@ -11,6 +11,12 @@ This is a demo project (ton, func, blueprint) showing how certain tricks might r
 
 ### Build
 
+**Tests do not compile contracts on the fly.** 
+
+**Compiled code is commited into vcs.** 
+
+**In case code has been changed it's required to build before tests!**
+
 `npx blueprint build` or `yarn blueprint build`
 
 ### Test
