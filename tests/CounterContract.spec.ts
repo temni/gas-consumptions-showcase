@@ -12,6 +12,7 @@ describe('CounterContract', () => {
     let contract_v3:SandboxContract<CounterContract>;
     let contract_v4:SandboxContract<CounterContract>;
     let contract_v5:SandboxContract<CounterContract>;
+    let contract_v6:SandboxContract<CounterContract>;
 
     beforeEach(async () => {
         blockchain = await Blockchain.create();
@@ -25,6 +26,7 @@ describe('CounterContract', () => {
         contract_v3 = await createContract(blockchain, "CounterContract_V3", cfg);
         contract_v4 = await createContract(blockchain, "CounterContract_V4", cfg);
         contract_v5 = await createContract(blockchain, "CounterContract_V5", cfg);
+        contract_v6 = await createContract(blockchain, "CounterContract_V6", cfg);
     });
 
     it('should all contracts work correct', async () => {
@@ -33,6 +35,7 @@ describe('CounterContract', () => {
         await checkContract(contract_v3, blockchain);
         await checkContract(contract_v4, blockchain);
         await checkContract(contract_v5, blockchain);
+        await checkContract(contract_v6, blockchain);
     });
 
 
@@ -49,6 +52,9 @@ describe('CounterContract', () => {
 
         const v5_spendings = await getAnnualSpendings(contract_v5, blockchain)
         console.log(`Contract V5 spends ${fromNano(v4_spendings - v5_spendings)} TONs less than contract V4 annually`);
+
+        const v6_spendings = await getAnnualSpendings(contract_v6, blockchain)
+        console.log(`Contract V6 spends ${fromNano(v5_spendings - v6_spendings)} TONs less than contract V5 annually`);
 
         console.log(`Overall fee reduced: ${fromNano(v1_spendings - v4_spendings)} TONs or ${((v1_spendings - v5_spendings) * 100n) / v1_spendings}% out of ${fromNano(v1_spendings)}`);
     });
