@@ -1,8 +1,10 @@
-import {beginCell, Cell, fromNano} from "@ton/core";
+import {Address, beginCell, Cell, fromNano, storeStateInit} from "@ton/core";
 import {CounterContract, CounterContractConfig} from "../wrappers/CounterContract";
 import {Blockchain, SandboxContract, TreasuryContract} from "@ton/sandbox";
 import path from "path";
 import fs from "fs";
+import exp from "constants";
+import {collectCellStats} from "./gasUtils";
 
 export function c1Cell(config: CounterContractConfig): Cell {
     return beginCell()
@@ -40,6 +42,9 @@ function buildDataCell(name: string, cfg:CounterContractConfig): Cell {
             return c3Cell(cfg)
         }
         case "CounterContract_V4": {
+            return c1Cell(cfg)
+        }
+        case "CounterContract_V5": {
             return c1Cell(cfg)
         }
         default:
@@ -96,6 +101,20 @@ export async function getAnnualSpendings(contract: SandboxContract<CounterContra
     return (freqC1Daily * c1 + freqC2Daily * c2 + freqC3Daily * c3) * 365n;
 }
 
+export async function calculateStates(blockchain: Blockchain, address: Address) {
+    const smc   = await blockchain.getContract(address);
+    if(smc.accountState === undefined)
+        throw new Error("Can't access wallet account state");
+    if(smc.accountState.type !== "active")
+        throw new Error("Wallet account is not active");
+    if(smc.account.account === undefined || smc.account.account === null)
+        throw new Error("Can't access wallet account!");
+    const state = smc.accountState.state;
+    const stateCell = beginCell().store(storeStateInit(state)).endCell();
+    console.log("State init stats:", collectCellStats(stateCell, []));
+    return stateCell;
+}
+
 export async function checkContract(contract: SandboxContract<CounterContract>, blockchain: Blockchain) {
     const increaser = await blockchain.treasury('increaser');
     let counterBefore = await contract.getCounters();
@@ -128,4 +147,6 @@ export async function checkContract(contract: SandboxContract<CounterContract>, 
 
     await contract.sendIncrease(increaser.getSender(), {  counterNumber: 3, increaseBy: 10020 });
     expect(await contract.getCounters()).toEqual([0, 10, 10040]);
+
+    await calculateStates(blockchain, contract.address);
 }

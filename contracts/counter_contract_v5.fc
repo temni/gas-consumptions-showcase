@@ -1,0 +1,79 @@
+#include "imports/stdlib.fc";
+
+const op::increase = "op::increase"c;
+const op::flush = "op::flush"c;
+
+const M = (1 << 32) - 1;
+
+;; load_data populates storage variables using stored data
+int load_data() impure inline {
+    var ds = get_data().begin_parse();
+    return ds~load_uint(192);
+}
+
+;; save_data stores storage variables as a cell into persistent storage
+() save_counters(int composite) impure inline {
+    set_data(begin_cell().store_uint(composite, 192).end_cell());
+}
+
+() recv_internal(cell in_msg_full, slice in_msg_body) impure {
+    if (in_msg_body.slice_empty?()) { ;; ignore all empty messages
+        return ();
+    }
+
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+    if (flags & 1) { ;; ignore all bounced messages
+        return ();
+    }
+    slice sender_address = cs~load_msg_addr();
+    int op = in_msg_body~load_uint(32);
+    in_msg_body~skip_bits(64);
+
+    if (op == op::increase) {
+        var (counter_number, increase_by)  = (in_msg_body~load_uint(32), in_msg_body~load_uint(32));
+        int pos = (6 - counter_number) * 32;
+        int composite = load_data();
+        int X = (composite >> pos) & M;
+        save_counters(composite - (X << pos) + (((X + increase_by) & M) << pos));
+
+        ;; return unspent grams back
+        send_raw_message(begin_cell()
+            .store_uint(0x18, 6)
+            .store_slice(sender_address)
+            .store_coins(0)
+            .store_uint(0, 107)
+            .end_cell(),
+            64);
+
+        return ();
+    }
+
+    if (op == op::flush) {
+        int counter_number = in_msg_body~load_uint(32);
+
+        int pos = (6 - counter_number) * 32;
+        int composite = load_data();
+        int X = (composite >> pos) & M;
+        int new_field = ((composite >> ((3 - counter_number) * 32)) & M) & M;
+        save_counters(composite - (X << pos) + (new_field << pos));
+
+        ;; return unspent grams back
+        send_raw_message(begin_cell()
+            .store_uint(0x18, 6)
+            .store_slice(sender_address)
+            .store_coins(0)
+            .store_uint(0, 107)
+            .end_cell(),
+            64);
+
+        return ();
+    }
+
+    throw(0xffff);
+}
+
+(int, int, int) get_counters() method_id {
+    int composite = load_data();
+    return (composite >> 160, (composite >> 128) & ((1 << 32) - 1), (composite >> 96) & ((1 << 32) - 1));
+}
